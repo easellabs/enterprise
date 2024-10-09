@@ -1,13 +1,13 @@
-from django.contrib.auth.models import User
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+# Updated models.py for simplified functionality
+
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.utils import timezone
 from django.conf import settings
-from django_otp.models import Device
 from django_otp.plugins.otp_totp.models import TOTPDevice
 
+# Custom User Manager for creating users and superusers
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -20,10 +20,10 @@ class CustomUserManager(BaseUserManager):
 
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
         return self.create_user(email, password, **extra_fields)
 
-class CustomUser(AbstractBaseUser, PermissionsMixin):
+# Custom User model with basic fields and support for email login
+class CustomUser(AbstractBaseUser):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=30, blank=True)
     last_name = models.CharField(max_length=30, blank=True)
@@ -38,35 +38,26 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
+# Custom TOTP Device model for 2FA support
 class CustomTOTPDevice(TOTPDevice):
     def __str__(self):
         return f"TOTP Device for {self.user.email}"
 
-# Role choices moved to a dedicated class to avoid hardcoding
-class RoleChoices(models.TextChoices):
-    ADMIN = 'Admin', 'Admin'
-    USER = 'User', 'User'
-    EMPLOYEE = 'Employee', 'Employee'
-
-
+# UserProfile model for additional user information
 class UserProfile(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL,on_delete=models.CASCADE, related_name='profile')
-    role = models.CharField(max_length=50, choices=RoleChoices.choices, default=RoleChoices.USER)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
     phone_number = models.CharField(max_length=20, blank=True, null=True)
-    address = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.role}"
+        return f"{self.user.email}"
 
     def save(self, *args, **kwargs):
-        # Add any additional business logic if necessary before saving
         super().save(*args, **kwargs)
 
-
-# Signal to create or update the user profile
-@receiver(post_save, sender=User)
+# Signal to create or update the user profile when a user is saved
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_or_update_user_profile(sender, instance, created, **kwargs):
     if created:
         UserProfile.objects.create(user=instance)

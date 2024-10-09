@@ -52,7 +52,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView,
 )
-from authentication.views import RegisterView, OTPVerifyView
+from authentication.views import register_user, login_user, enable_2fa, verify_2fa
 
 urlpatterns = [
     path('admin/', admin.site.urls),
